@@ -10,9 +10,9 @@ FiveM resource for street races with custom checkpoints and HUD.
 ## usage
 
 1. type /race record to start recording checkpoints, you can either place waypoints on roads or go around the map and press 'E' to place a waypoint (handy for places that don't have roads or for things like airplane races).
-2. type /race save name to save the race
-3. type /race load name to load a previously saved race
-4. type /race start laps join timeout to start a race.
+2. type /race save **name** to save the race
+3. type /race load **name** to load a previously saved race
+4. type /race start **laps** **amount** **timeout** to start a race.
 
 - /race cancel stop a race in progress
-- /race delete name deletes a race.
+- /race delete **name** deletes a race.
