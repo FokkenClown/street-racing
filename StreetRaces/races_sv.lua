@@ -17,7 +17,7 @@ Citizen.CreateThread(function()
             if (time > race.startTime) and (#players == 0) then
                 -- Race past start time with no players, remove race and send event to all clients
                 table.remove(races, index)
-                TriggerClientEvent("races:removeRace_cl", -1, index)
+                TriggerClientEvent("StreetRaces:removeRace_cl", -1, index)
             -- Check if race has finished and expired
             elseif (race.finishTime ~= 0) and (time > race.finishTime + race.finishTimeout) then
                 -- Did not finish, notify players still racing
@@ -27,17 +27,18 @@ Citizen.CreateThread(function()
 
                 -- Remove race and send event to all clients
                 table.remove(races, index)
-                TriggerClientEvent("races:removeRace_cl", -1, index)
+                TriggerClientEvent("StreetRaces:removeRace_cl", -1, index)
             end
         end
     end
 end)
 
 -- Server event for creating a race
-RegisterNetEvent("races:createRace_sv")
-AddEventHandler("races:createRace_sv", function(amount, startDelay, startCoords, checkpoints, finishTimeout)
+RegisterNetEvent("StreetRaces:createRace_sv")
+AddEventHandler("StreetRaces:createRace_sv", function(amount, startDelay, startCoords, TotalLaps, checkpoints, finishTimeout)
     -- Add fields to race struct and add to races array
     local race = {
+		laps = TotalLaps,
         owner = source,
         amount = amount,
         startTime = GetGameTimer() + startDelay,
@@ -46,18 +47,20 @@ AddEventHandler("races:createRace_sv", function(amount, startDelay, startCoords,
         finishTimeout = config_sv.finishTimeout,
         players = {},
         prize = 0,
-        finishTime = 0
+        finishTime = 0,
+		playersCheckpoints = {},
+		totalPlayers = 0
     }
     table.insert(races, race)
 
     -- Send race data to all clients
     local index = #races
-    TriggerClientEvent("races:createRace_cl", -1, index, amount, startDelay, startCoords, checkpoints)
+    TriggerClientEvent("StreetRaces:createRace_cl", -1, index, amount, startDelay, startCoords, TotalLaps, checkpoints)
 end)
 
 -- Server event for canceling a race
-RegisterNetEvent("races:cancelRace_sv")
-AddEventHandler("races:cancelRace_sv", function()
+RegisterNetEvent("StreetRaces:cancelRace_sv")
+AddEventHandler("StreetRaces:cancelRace_sv", function()
     -- Iterate through races
     for index, race in pairs(races) do
         -- Find if source player owns a race that hasn't started
@@ -76,17 +79,18 @@ AddEventHandler("races:cancelRace_sv", function()
 
             -- Remove race from table and send client event
             table.remove(races, index)
-            TriggerClientEvent("races:removeRace_cl", -1, index)
+            TriggerClientEvent("StreetRaces:removeRace_cl", -1, index)
         end
     end
 end)
 
 -- Server event for joining a race
-RegisterNetEvent("races:joinRace_sv")
-AddEventHandler("races:joinRace_sv", function(index)
+RegisterNetEvent("StreetRaces:joinRace_sv")
+AddEventHandler("StreetRaces:joinRace_sv", function(index)
     -- Validate and deduct player money
     local race = races[index]
     local amount = race.amount
+	local laps = race.laps
     local playerMoney = getMoney(source)
     if playerMoney >= amount then
         -- Deduct money from player and add to prize pool
@@ -95,7 +99,9 @@ AddEventHandler("races:joinRace_sv", function(index)
 
         -- Add player to race and send join event back to client
         table.insert(races[index].players, source)
-        TriggerClientEvent("races:joinedRace_cl", source, index)
+		races[index].playersCheckpoints[source] = 0
+		races[index].totalPlayers = races[index].totalPlayers + 1
+        TriggerClientEvent("StreetRaces:joinedRace_cl", source, index)
     else
         -- Insufficient money, send notification back to client
         local msg = "Insuffient funds to join race"
@@ -104,8 +110,8 @@ AddEventHandler("races:joinRace_sv", function(index)
 end)
 
 -- Server event for leaving a race
-RegisterNetEvent("races:leaveRace_sv")
-AddEventHandler("races:leaveRace_sv", function(index)
+RegisterNetEvent("StreetRaces:leaveRace_sv")
+AddEventHandler("StreetRaces:leaveRace_sv", function(index)
     -- Validate player is part of the race
     local race = races[index]
     local players = race.players
@@ -119,8 +125,8 @@ AddEventHandler("races:leaveRace_sv", function(index)
 end)
 
 -- Server event for finishing a race
-RegisterNetEvent("races:finishedRace_sv")
-AddEventHandler("races:finishedRace_sv", function(index, time)
+RegisterNetEvent("StreetRaces:finishedRace_sv")
+AddEventHandler("StreetRaces:finishedRace_sv", function(index, time)
     -- Check player was part of the race
     local race = races[index]
     local players = race.players
@@ -141,16 +147,16 @@ AddEventHandler("races:finishedRace_sv", function(index, time)
                 -- Send winner notification to players
                 for _, pSource in pairs(players) do
                     if pSource == source then
-                        local msg = ("You won (%02d:%06.3f)"):format(timeMinutes, timeSeconds)
+                        local msg = ("You won [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
                         notifyPlayer(pSource, msg)
                     elseif config_sv.notifyOfWinner then
-                        local msg = ("%s won (%02d:%06.3f)"):format(getName(source), timeMinutes, timeSeconds)
+                        local msg = ("%s won [%02d:%06.3f]"):format(getName(source), timeMinutes, timeSeconds)
                         notifyPlayer(pSource, msg)
                     end
                 end
             else
                 -- Loser, send notification to only the player
-                local msg = ("You lost (%02d:%06.3f)"):format(timeMinutes, timeSeconds)
+                local msg = ("You lost [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
                 notifyPlayer(source, msg)
             end
 
@@ -162,16 +168,129 @@ AddEventHandler("races:finishedRace_sv", function(index, time)
 end)
 
 -- Server event for saving recorded checkpoints as a race
-RegisterNetEvent("races:saveRace_sv")
-AddEventHandler("races:saveRace_sv", function(name, checkpoints)
+RegisterNetEvent("StreetRaces:saveRace_sv")
+AddEventHandler("StreetRaces:saveRace_sv", function(name, checkpoints)
+    -- Cleanup data so it can be serialized
+    for _, checkpoint in pairs(checkpoints) do
+        checkpoint.blip = nil
+        checkpoint.coords = {x = checkpoint.coords.x, y = checkpoint.coords.y, z = checkpoint.coords.z}
+    end
+
+    -- Get saved player races, add race and save
+    local playerRaces = loadPlayerData(source)
+    playerRaces[name] = checkpoints
+    savePlayerData(source, playerRaces)
+
+    -- Send notification to player
+    local msg = "Saved " .. name
+    notifyPlayer(source, msg)
+end)
+
+-- Server event for deleting recorded race
+RegisterNetEvent("StreetRaces:deleteRace_sv")
+AddEventHandler("StreetRaces:deleteRace_sv", function(name)
+    -- Get saved player races
+    local playerRaces = loadPlayerData(source)
+
+    -- Check if race with name exists
+    if playerRaces[name] ~= nil then
+        -- Delete race and save data
+        playerRaces[name] = nil
+        savePlayerData(source, playerRaces)
+
+        -- Send notification to player
+        local msg = "Deleted " .. name
+        notifyPlayer(source, msg)
+    else
+        local msg = "No race found with name " .. name
+        notifyPlayer(source, msg)
+    end
 end)
 
 -- Server event for listing recorded races
-RegisterNetEvent("races:listRace_sv")
-AddEventHandler("races:listRace_sv", function()
+RegisterNetEvent("StreetRaces:listRaces_sv")
+AddEventHandler("StreetRaces:listRaces_sv", function()
+    -- Get saved player races and iterate through saved races
+    local msg = "Saved races: "
+    local count = 0
+    local playerRaces = loadPlayerData(source)
+    for name, race in pairs(playerRaces) do
+        msg = msg .. name .. ", "
+        count = count + 1
+    end
+
+    -- Fix string formatting
+    if count > 0 then
+        msg = string.sub(msg, 1, -3)
+    end
+
+    -- Send notification to player with listing
+    notifyPlayer(source, msg)
 end)
 
 -- Server event for loaded recorded race
-RegisterNetEvent("races:loadRace_sv")
-AddEventHandler("races:loadRace_sv", function(name)
+RegisterNetEvent("StreetRaces:loadRace_sv")
+AddEventHandler("StreetRaces:loadRace_sv", function(name)
+    -- Get saved player races and load race
+    local playerRaces = loadPlayerData(source)
+    local race = playerRaces[name]
+
+    -- If race was found send it to the client
+    if race ~= nil then
+        -- Send race data to client
+        TriggerClientEvent("StreetRaces:loadRace_cl", source, race)
+
+        -- Send notification to player
+        local msg = "Loaded " .. name
+        notifyPlayer(source, msg)
+    else
+        local msg = "No race found with name " .. name
+        notifyPlayer(source, msg)
+    end
 end)
+
+-- Server event for updating positions
+RegisterNetEvent("StreetRaces:updatecheckpoitcount_sv")
+AddEventHandler("StreetRaces:updatecheckpoitcount_sv", function(index,amount)
+	-- update the checkpoints value for player
+	local race = races[index]
+	race.playersCheckpoints[source] = amount
+	
+	-- complile a list of positions and send back to client
+	local counter = 0
+	for k,v in spairs(race.playersCheckpoints, function(t,a,b) return t[b] < t[a] end) do
+		counter = counter + 1
+		local allPlayers = race.totalPlayers
+		if k == source then
+			local playerID = k
+			local position = counter
+			-- send position (counter) to player
+			TriggerClientEvent("StreetRaces:updatePos", playerID, position, allPlayers)
+		end
+	end
+	
+end)
+
+function spairs(t, order)
+    -- collect the keys
+    local keys = {}
+    for k in pairs(t) do keys[#keys+1] = k end
+
+    -- if order function given, sort by it by passing the table and keys a, b,
+    -- otherwise just sort the keys 
+    if order then
+        table.sort(keys, function(a,b) return order(t, a, b) end)
+    else
+        table.sort(keys)
+    end
+
+    -- return the iterator function
+    local i = 0
+    return function()
+        i = i + 1
+        if keys[i] then
+            return keys[i], t[keys[i]]
+        end
+    end
+end
+
