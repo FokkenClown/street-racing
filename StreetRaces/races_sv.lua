@@ -126,7 +126,7 @@ end)
 
 -- Server event for finishing a race
 RegisterNetEvent("Races:finishedRace_sv")
-AddEventHandler("Races:finishedRace_sv", function(index, time)
+AddEventHandler("Races:finishedRace_sv", function(index, time, position, playerName)
     -- Check player was part of the race
     local race = races[index]
     local players = race.players
@@ -156,8 +156,15 @@ AddEventHandler("Races:finishedRace_sv", function(index, time)
                 end
             else
                 -- Loser, send notification to only the player
-                local msg = ("You lost [%02d:%06.3f]"):format(timeMinutes, timeSeconds)
+                local msg = ("You came in %s [%02d:%06.3f]"):format(position, timeMinutes, timeSeconds)
                 notifyPlayer(source, msg)
+
+                for _, pSource in pairs(players) do
+                    if pSource ~= source and config_sv.notifyOfWinner then
+                        local msg = ("%s finished %1s [%02d:%06.3f]"):format(playerName, position, timeMinutes, timeSeconds)
+                        notifyPlayer(pSource, msg)
+                    end
+                end
             end
 
             -- Remove player form list and break

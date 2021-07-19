@@ -15,6 +15,6 @@ config_cl = {
 
 -- SERVER CONFIGURATION
 config_sv = {
-    finishTimeout = 180000,             -- Timeout in ms for removing a race after winner finishes
+    finishTimeout = 300000,             -- Timeout in ms for removing a race after winner finishes
     notifyOfWinner = true               -- Notify all players of the winner (false will only notify the winner)
 }

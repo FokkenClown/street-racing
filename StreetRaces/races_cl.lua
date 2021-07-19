@@ -247,7 +247,7 @@ Citizen.CreateThread(function()
 
 								-- Send finish event to server
 								local currentTime = (GetGameTimer() - race.startTime)
-								TriggerServerEvent('Races:finishedRace_sv', raceStatus.index, currentTime)
+								TriggerServerEvent('Races:finishedRace_sv', raceStatus.index, currentTime, raceStatus.myPosition, GetPlayerName(PlayerId()))
 								
 								-- Reset state
 								raceStatus.index = 0
