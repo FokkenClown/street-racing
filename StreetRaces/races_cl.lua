@@ -31,7 +31,7 @@ RegisterCommand("race", function(source, args)
         -- If player is part of a race, clean up map and send leave event to server
         if raceStatus.state == RACE_STATE_JOINED or raceStatus.state == RACE_STATE_RACING then
             cleanupRace()
-            TriggerServerEvent('Races:leaveRace_sv', raceStatus.index)
+            TriggerServerEvent('StreetRaces:leaveRace_sv', raceStatus.index)
         end
 
         -- Reset state
@@ -48,22 +48,22 @@ RegisterCommand("race", function(source, args)
         local name = args[2]
         if name ~= nil and #recordedCheckpoints > 0 then
             -- Send event to server to save checkpoints
-            TriggerServerEvent('Races:saveRace_sv', name, recordedCheckpoints)
+            TriggerServerEvent('StreetRaces:saveRace_sv', name, recordedCheckpoints)
         end
     elseif args[1] == "delete" then
         -- Check name was provided and send event to server to delete saved race
         local name = args[2]
         if name ~= nil then
-            TriggerServerEvent('Races:deleteRace_sv', name)
+            TriggerServerEvent('StreetRaces:deleteRace_sv', name)
         end
     elseif args[1] == "list" then
         -- Send event to server to list saved races
-        TriggerServerEvent('Races:listRaces_sv')
+        TriggerServerEvent('StreetRaces:listRaces_sv')
     elseif args[1] == "load" then
         -- Check name was provided and send event to server to load saved race
         local name = args[2]
         if name ~= nil then
-            TriggerServerEvent('Races:loadRace_sv', name)
+            TriggerServerEvent('StreetRaces:loadRace_sv', name)
         end
     elseif args[1] == "start" then
         -- Parse arguments and create race
@@ -78,13 +78,13 @@ RegisterCommand("race", function(source, args)
             -- Create a race using checkpoints or waypoint if none set
             if #recordedCheckpoints > 0 then
                 -- Create race using custom checkpoints
-                TriggerServerEvent('Races:createRace_sv', amount, startDelay, startCoords, TotalLaps, recordedCheckpoints)
+                TriggerServerEvent('StreetRaces:createRace_sv', amount, startDelay, startCoords, TotalLaps, recordedCheckpoints)
             elseif IsWaypointActive() then
                 -- Create race using waypoint as the only checkpoint
                 local waypointCoords = GetBlipInfoIdCoord(GetFirstBlipInfoId(8))
                 local retval, nodeCoords = GetClosestVehicleNode(waypointCoords.x, waypointCoords.y, waypointCoords.z, 1)
                 table.insert(recordedCheckpoints, {blip = nil, coords = nodeCoords})
-                TriggerServerEvent('Races:createRace_sv', amount, startDelay, startCoords, recordedCheckpoints, 10)
+                TriggerServerEvent('StreetRaces:createRace_sv', amount, startDelay, startCoords, recordedCheckpoints, 10)
             end
 
             -- Set state to none to cleanup recording blips while waiting to join
@@ -92,15 +92,15 @@ RegisterCommand("race", function(source, args)
         end
     elseif args[1] == "cancel" then
         -- Send cancel event to server
-        TriggerServerEvent('Races:cancelRace_sv')
+        TriggerServerEvent('StreetRaces:cancelRace_sv')
     else
         return
     end
 end)
 
 -- Client event for when a race is created
-RegisterNetEvent("Races:createRace_cl")
-AddEventHandler("Races:createRace_cl", function(index, amount, startDelay, startCoords, TotalLaps, checkpoints)
+RegisterNetEvent("StreetRaces:createRace_cl")
+AddEventHandler("StreetRaces:createRace_cl", function(index, amount, startDelay, startCoords, TotalLaps, checkpoints)
     -- Create race struct and add to array
     local race = {
 		laps = TotalLaps,
@@ -117,8 +117,8 @@ AddEventHandler("Races:createRace_cl", function(index, amount, startDelay, start
 end)
 
 -- Client event for loading a race
-RegisterNetEvent("Races:loadRace_cl")
-AddEventHandler("Races:loadRace_cl", function(checkpoints)
+RegisterNetEvent("StreetRaces:loadRace_cl")
+AddEventHandler("StreetRaces:loadRace_cl", function(checkpoints)
     -- Cleanup recording, save checkpoints and set state to recording
     cleanupRecording()
     recordedCheckpoints = checkpoints
@@ -139,8 +139,8 @@ AddEventHandler("Races:loadRace_cl", function(checkpoints)
 end)
 
 -- Client event for when a race is joined
-RegisterNetEvent("Races:joinedRace_cl")
-AddEventHandler("Races:joinedRace_cl", function(index)
+RegisterNetEvent("StreetRaces:joinedRace_cl")
+AddEventHandler("StreetRaces:joinedRace_cl", function(index)
     -- Set index and state to joined
     raceStatus.index = index
     raceStatus.state = RACE_STATE_JOINED
@@ -162,8 +162,8 @@ AddEventHandler("Races:joinedRace_cl", function(index)
 end)
 
 -- Client event for when a race is removed
-RegisterNetEvent("Races:removeRace_cl")
-AddEventHandler("Races:removeRace_cl", function(index)
+RegisterNetEvent("StreetRaces:removeRace_cl")
+AddEventHandler("StreetRaces:removeRace_cl", function(index)
     -- Check if index matches active race
     if index == raceStatus.index then
         -- Cleanup map blips and checkpoints
@@ -184,8 +184,8 @@ AddEventHandler("Races:removeRace_cl", function(index)
 end)
 
 -- Client event for updated position
-RegisterNetEvent("Races:updatePos")
-AddEventHandler("Races:updatePos", function(position, allPlayers)
+RegisterNetEvent("StreetRaces:updatePos")
+AddEventHandler("StreetRaces:updatePos", function(position, allPlayers)
 	raceStatus.myPosition = position
 	raceStatus.totalPlayers = allPlayers
 end)
@@ -247,7 +247,7 @@ Citizen.CreateThread(function()
 
 								-- Send finish event to server
 								local currentTime = (GetGameTimer() - race.startTime)
-								TriggerServerEvent('Races:finishedRace_sv', raceStatus.index, currentTime, raceStatus.myPosition, GetPlayerName(PlayerId()))
+								TriggerServerEvent('StreetRaces:finishedRace_sv', raceStatus.index, currentTime, raceStatus.myPosition, GetPlayerName(PlayerId()))
 								
 								-- Reset state
 								raceStatus.index = 0
@@ -354,7 +354,7 @@ Citizen.CreateThread(function()
 
                         -- Check if player enters the race and send join event to server
                         if IsControlJustReleased(1, config_cl.joinKeybind) then
-                            TriggerServerEvent('Races:joinRace_sv', index)
+                            TriggerServerEvent('StreetRaces:joinRace_sv', index)
                             break
                         end
                     end
@@ -375,7 +375,7 @@ Citizen.CreateThread(function()
 			oldpos = newpos
 			raceStatus.distanceTraveled = raceStatus.distanceTraveled + dist		
 			local value = raceStatus.totalCheckpoints + math.floor(raceStatus.distanceTraveled*1.33)/1000
-			TriggerServerEvent('Races:updatecheckpoitcount_sv', raceStatus.index, value)
+			TriggerServerEvent('StreetRaces:updatecheckpoitcount_sv', raceStatus.index, value)
 		end
 	end
 end)

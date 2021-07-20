@@ -17,7 +17,7 @@ Citizen.CreateThread(function()
             if (time > race.startTime) and (#players == 0) then
                 -- Race past start time with no players, remove race and send event to all clients
                 table.remove(races, index)
-                TriggerClientEvent("Races:removeRace_cl", -1, index)
+                TriggerClientEvent("StreetRaces:removeRace_cl", -1, index)
             -- Check if race has finished and expired
             elseif (race.finishTime ~= 0) and (time > race.finishTime + race.finishTimeout) then
                 -- Did not finish, notify players still racing
@@ -27,15 +27,15 @@ Citizen.CreateThread(function()
 
                 -- Remove race and send event to all clients
                 table.remove(races, index)
-                TriggerClientEvent("Races:removeRace_cl", -1, index)
+                TriggerClientEvent("StreetRaces:removeRace_cl", -1, index)
             end
         end
     end
 end)
 
 -- Server event for creating a race
-RegisterNetEvent("Races:createRace_sv")
-AddEventHandler("Races:createRace_sv", function(amount, startDelay, startCoords, TotalLaps, checkpoints, finishTimeout)
+RegisterNetEvent("StreetRaces:createRace_sv")
+AddEventHandler("StreetRaces:createRace_sv", function(amount, startDelay, startCoords, TotalLaps, checkpoints, finishTimeout)
     -- Add fields to race struct and add to races array
     local race = {
 		laps = TotalLaps,
@@ -55,12 +55,12 @@ AddEventHandler("Races:createRace_sv", function(amount, startDelay, startCoords,
 
     -- Send race data to all clients
     local index = #races
-    TriggerClientEvent("Races:createRace_cl", -1, index, amount, startDelay, startCoords, TotalLaps, checkpoints)
+    TriggerClientEvent("StreetRaces:createRace_cl", -1, index, amount, startDelay, startCoords, TotalLaps, checkpoints)
 end)
 
 -- Server event for canceling a race
-RegisterNetEvent("Races:cancelRace_sv")
-AddEventHandler("Races:cancelRace_sv", function()
+RegisterNetEvent("StreetRaces:cancelRace_sv")
+AddEventHandler("StreetRaces:cancelRace_sv", function()
     -- Iterate through races
     for index, race in pairs(races) do
         -- Find if source player owns a race that hasn't started
@@ -79,17 +79,17 @@ AddEventHandler("Races:cancelRace_sv", function()
 
             -- Remove race from table and send client event
             table.remove(races, index)
-            TriggerClientEvent("Races:removeRace_cl", -1, index)
+            TriggerClientEvent("StreetRaces:removeRace_cl", -1, index)
         end
     end
 end)
 
 -- Server event for joining a race
-RegisterNetEvent("Races:joinRace_sv")
-AddEventHandler("Races:joinRace_sv", function(index)
+RegisterNetEvent("StreetRaces:joinRace_sv")
+AddEventHandler("StreetRaces:joinRace_sv", function(index)
     -- Validate and deduct player money
     local race = races[index]
-    local amount = race.amount
+    local amount = tonumber(race.amount)
 	local laps = race.laps
     local playerMoney = getMoney(source)
     if playerMoney >= amount then
@@ -101,7 +101,7 @@ AddEventHandler("Races:joinRace_sv", function(index)
         table.insert(races[index].players, source)
 		races[index].playersCheckpoints[source] = 0
 		races[index].totalPlayers = races[index].totalPlayers + 1
-        TriggerClientEvent("Races:joinedRace_cl", source, index)
+        TriggerClientEvent("StreetRaces:joinedRace_cl", source, index)
     else
         -- Insufficient money, send notification back to client
         local msg = "Insuffient funds to join race"
@@ -110,8 +110,8 @@ AddEventHandler("Races:joinRace_sv", function(index)
 end)
 
 -- Server event for leaving a race
-RegisterNetEvent("Races:leaveRace_sv")
-AddEventHandler("Races:leaveRace_sv", function(index)
+RegisterNetEvent("StreetRaces:leaveRace_sv")
+AddEventHandler("StreetRaces:leaveRace_sv", function(index)
     -- Validate player is part of the race
     local race = races[index]
     local players = race.players
@@ -125,8 +125,8 @@ AddEventHandler("Races:leaveRace_sv", function(index)
 end)
 
 -- Server event for finishing a race
-RegisterNetEvent("Races:finishedRace_sv")
-AddEventHandler("Races:finishedRace_sv", function(index, time, position, playerName)
+RegisterNetEvent("StreetRaces:finishedRace_sv")
+AddEventHandler("StreetRaces:finishedRace_sv", function(index, time, position, playerName)
     -- Check player was part of the race
     local race = races[index]
     local players = race.players
@@ -161,7 +161,8 @@ AddEventHandler("Races:finishedRace_sv", function(index, time, position, playerN
 
                 for _, pSource in pairs(players) do
                     if pSource ~= source and config_sv.notifyOfWinner then
-                        local msg = ("%s finished %1s [%02d:%06.3f]"):format(playerName, position, timeMinutes, timeSeconds)
+                        local msg = ("%s finished [%02d:%06.3f]"):format(playerName, position, timeMinutes, timeSeconds)
+                        --add back position achieved
                         notifyPlayer(pSource, msg)
                     end
                 end
@@ -175,8 +176,8 @@ AddEventHandler("Races:finishedRace_sv", function(index, time, position, playerN
 end)
 
 -- Server event for saving recorded checkpoints as a race
-RegisterNetEvent("Races:saveRace_sv")
-AddEventHandler("Races:saveRace_sv", function(name, checkpoints)
+RegisterNetEvent("StreetRaces:saveRace_sv")
+AddEventHandler("StreetRaces:saveRace_sv", function(name, checkpoints)
     -- Cleanup data so it can be serialized
     for _, checkpoint in pairs(checkpoints) do
         checkpoint.blip = nil
@@ -194,8 +195,8 @@ AddEventHandler("Races:saveRace_sv", function(name, checkpoints)
 end)
 
 -- Server event for deleting recorded race
-RegisterNetEvent("Races:deleteRace_sv")
-AddEventHandler("Races:deleteRace_sv", function(name)
+RegisterNetEvent("StreetRaces:deleteRace_sv")
+AddEventHandler("StreetRaces:deleteRace_sv", function(name)
     -- Get saved player races
     local playerRaces = loadPlayerData(source)
 
@@ -215,10 +216,10 @@ AddEventHandler("Races:deleteRace_sv", function(name)
 end)
 
 -- Server event for listing recorded races
-RegisterNetEvent("Races:listRaces_sv")
-AddEventHandler("Races:listRaces_sv", function()
+RegisterNetEvent("StreetRaces:listRaces_sv")
+AddEventHandler("StreetRaces:listRaces_sv", function()
     -- Get saved player races and iterate through saved races
-    local msg = "Saved races: "
+    local msg = "Saved StreetRaces: "
     local count = 0
     local playerRaces = loadPlayerData(source)
     for name, race in pairs(playerRaces) do
@@ -236,8 +237,8 @@ AddEventHandler("Races:listRaces_sv", function()
 end)
 
 -- Server event for loaded recorded race
-RegisterNetEvent("Races:loadRace_sv")
-AddEventHandler("Races:loadRace_sv", function(name)
+RegisterNetEvent("StreetRaces:loadRace_sv")
+AddEventHandler("StreetRaces:loadRace_sv", function(name)
     -- Get saved player races and load race
     local playerRaces = loadPlayerData(source)
     local race = playerRaces[name]
@@ -245,7 +246,7 @@ AddEventHandler("Races:loadRace_sv", function(name)
     -- If race was found send it to the client
     if race ~= nil then
         -- Send race data to client
-        TriggerClientEvent("Races:loadRace_cl", source, race)
+        TriggerClientEvent("StreetRaces:loadRace_cl", source, race)
 
         -- Send notification to player
         local msg = "Loaded " .. name
@@ -257,8 +258,8 @@ AddEventHandler("Races:loadRace_sv", function(name)
 end)
 
 -- Server event for updating positions
-RegisterNetEvent("Races:updatecheckpoitcount_sv")
-AddEventHandler("Races:updatecheckpoitcount_sv", function(index,amount)
+RegisterNetEvent("StreetRaces:updatecheckpoitcount_sv")
+AddEventHandler("StreetRaces:updatecheckpoitcount_sv", function(index,amount)
 	-- update the checkpoints value for player
 	local race = races[index]
 	race.playersCheckpoints[source] = amount
@@ -272,7 +273,7 @@ AddEventHandler("Races:updatecheckpoitcount_sv", function(index,amount)
 			local playerID = k
 			local position = counter
 			-- send position (counter) to player
-			TriggerClientEvent("Races:updatePos", playerID, position, allPlayers)
+			TriggerClientEvent("StreetRaces:updatePos", playerID, position, allPlayers)
 		end
 	end
 	
