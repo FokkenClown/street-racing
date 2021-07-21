@@ -62,6 +62,12 @@ Citizen.CreateThread(function()
                     notifyPlayer(player, "DNF (timeout)")
                 end
 
+                for _, player in pairs(race.finishedPlayers) do
+                    for _, finishedPlayer in pairs(race.finishedPlayers) do
+                        notifyPlayer(player.playerId, finishedPlayer.msg)
+                    end
+                end
+
                 -- Remove race and send event to all clients
                 table.remove(races, index)
                 TriggerClientEvent("StreetRaces:removeRace_cl", -1, index)
