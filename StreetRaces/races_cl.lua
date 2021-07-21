@@ -247,7 +247,7 @@ Citizen.CreateThread(function()
 
 								-- Send finish event to server
 								local currentTime = (GetGameTimer() - race.startTime)
-								TriggerServerEvent('StreetRaces:finishedRace_sv', raceStatus.index, currentTime, raceStatus.myPosition, GetPlayerName(PlayerId()))
+								TriggerServerEvent('StreetRaces:finishedRace_sv', raceStatus.index, currentTime, GetPlayerName(PlayerId()))
 								
 								-- Reset state
 								raceStatus.index = 0
@@ -333,7 +333,7 @@ Citizen.CreateThread(function()
                 else
                     -- Draw 3D start time and join text
                     local temp, zCoord = GetGroundZFor_3dCoord(race.startCoords.x, race.startCoords.y, 9999.9, 1)
-                    Draw3DText(race.startCoords.x, race.startCoords.y, zCoord+1.0, ("Race for ~g~$%d~w~ starting in ~y~%d~w~s"):format(race.amount, math.ceil(count/1000.0)))
+                    Draw3DText(race.startCoords.x, race.startCoords.y, zCoord+1.0, ("Race for ~g~R%d~w~ starting in ~y~%d~w~s"):format(race.amount, math.ceil(count/1000.0)))
                     Draw3DText(race.startCoords.x, race.startCoords.y, zCoord+0.80, "Joined")
                 end
             -- Player is not in a race
@@ -349,7 +349,7 @@ Citizen.CreateThread(function()
                         -- Draw 3D text
                         local count = math.ceil((race.startTime - currentTime)/1000.0)
                         local temp, zCoord = GetGroundZFor_3dCoord(race.startCoords.x, race.startCoords.y, 9999.9, 0)
-                        Draw3DText(race.startCoords.x, race.startCoords.y, zCoord+1.0, ("Race for ~g~$%d~w~ starting in ~y~%d~w~s"):format(race.amount, count))
+                        Draw3DText(race.startCoords.x, race.startCoords.y, zCoord+1.0, ("Race for ~g~R%d~w~ starting in ~y~%d~w~s"):format(race.amount, count))
                         Draw3DText(race.startCoords.x, race.startCoords.y, zCoord+0.80, "Press [~g~E~w~] to join")
 
                         -- Check if player enters the race and send join event to server

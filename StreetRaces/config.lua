@@ -1,6 +1,6 @@
 -- CLIENT CONFIGURATION
 config_cl = {
-    joinProximity = 25,                 -- Proximity to draw 3D text and join race
+    joinProximity = 50,                 -- Proximity to draw 3D text and join race
     joinKeybind = 51,                   -- Keybind to join race ("E" by default)
 	markerKeybind = 51,                 -- Keybind to set markers ("E" by default)
     joinDuration = 30000,               -- Duration in ms to allow players to join the race

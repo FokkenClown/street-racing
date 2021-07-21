@@ -1,5 +1,37 @@
 -- Server side array of active races
 local races = {}
+local racePositionWording = {
+    [1] = "1st",
+    [2] = "2nd",
+    [3] = "3rd",
+    [4] = "4th",
+    [5] = "5th",
+    [6] = "6th",
+    [7] = "7th",
+    [8] = "8th",
+    [9] = "9th",
+    [10] = "10th",
+    [11] = "11th",
+    [12] = "12th",
+    [13] = "13th",
+    [14] = "14th",
+    [15] = "15th",
+    [16] = "16th",
+    [17] = "17th",
+    [18] = "18th",
+    [19] = "19th",
+    [20] = "20th",
+    [21] = "21st",
+    [22] = "22nd",
+    [23] = "23rd",
+    [24] = "24th",
+    [25] = "25th",
+    [26] = "26th",
+    [27] = "27th",
+    [28] = "28th",
+    [29] = "29th",
+    [30] = "30th",
+}
 
 -- Cleanup thread
 Citizen.CreateThread(function()
@@ -16,6 +48,11 @@ Citizen.CreateThread(function()
             -- Check start time and player count
             if (time > race.startTime) and (#players == 0) then
                 -- Race past start time with no players, remove race and send event to all clients
+                for _, player in pairs(race.finishedPlayers) do
+                    for _, finishedPlayer in pairs(race.finishedPlayers) do
+                        notifyPlayer(player.playerId, finishedPlayer.msg)
+                    end
+                end
                 table.remove(races, index)
                 TriggerClientEvent("StreetRaces:removeRace_cl", -1, index)
             -- Check if race has finished and expired
@@ -49,7 +86,9 @@ AddEventHandler("StreetRaces:createRace_sv", function(amount, startDelay, startC
         prize = 0,
         finishTime = 0,
 		playersCheckpoints = {},
-		totalPlayers = 0
+		totalPlayers = 0,
+        finishedPlayerCount = 0,
+        finishedPlayers = {}
     }
     table.insert(races, race)
 
@@ -126,18 +165,20 @@ end)
 
 -- Server event for finishing a race
 RegisterNetEvent("StreetRaces:finishedRace_sv")
-AddEventHandler("StreetRaces:finishedRace_sv", function(index, time, position, playerName)
+AddEventHandler("StreetRaces:finishedRace_sv", function(index, time, playerName)
     -- Check player was part of the race
     local race = races[index]
     local players = race.players
+    -- Calculate finish time
+    local time = GetGameTimer()
+    local timeSeconds = (time - race.startTime)/1000.0
+    local timeMinutes = math.floor(timeSeconds/60.0)
+    timeSeconds = timeSeconds - 60.0*timeMinutes
+    race.finishedPlayerCount = race.finishedPlayerCount + 1
+    local finishedPosition = racePositionWording[race.finishedPlayerCount];
+
     for index, player in pairs(players) do
         if source == player then 
-            -- Calculate finish time
-            local time = GetGameTimer()
-            local timeSeconds = (time - race.startTime)/1000.0
-            local timeMinutes = math.floor(timeSeconds/60.0)
-            timeSeconds = timeSeconds - 60.0*timeMinutes
-
             -- If race has not finished already
             if race.finishTime == 0 then
                 -- Winner, set finish time and award prize money
@@ -156,19 +197,27 @@ AddEventHandler("StreetRaces:finishedRace_sv", function(index, time, position, p
                 end
             else
                 -- Loser, send notification to only the player
-                local msg = ("You came in %s [%02d:%06.3f]"):format(position, timeMinutes, timeSeconds)
+                local msg = ("You came in %s [%02d:%06.3f]"):format(finishedPosition, timeMinutes, timeSeconds)
                 notifyPlayer(source, msg)
 
                 for _, pSource in pairs(players) do
                     if pSource ~= source and config_sv.notifyOfWinner then
-                        local msg = ("%s finished [%02d:%06.3f]"):format(playerName, position, timeMinutes, timeSeconds)
+                        local msg = ("%s finished %1s [%02d:%06.3f]"):format(playerName, finishedPosition, timeMinutes, timeSeconds)
                         --add back position achieved
                         notifyPlayer(pSource, msg)
                     end
                 end
             end
 
+            -- for index, finishedPlayer in pairs(race.finishedPlayers) do 
+            --     local msg = ("%s finished %1s [%02d:%06.3f]"):format(playerName, finishedPosition, timeMinutes, timeSeconds)
+            --     print(msg);
+            --     notifyPlayer(finishedPlayer, msg)
+            --     break
+            -- end
+
             -- Remove player form list and break
+            table.insert(race.finishedPlayers, {playerId = player, msg = ("%s finished %1s"):format(playerName, finishedPosition) })
             table.remove(players, index)
             break
         end
